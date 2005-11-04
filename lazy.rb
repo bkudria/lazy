@@ -43,6 +43,9 @@ module Kernel
 # result object; messages sent to the promise will force evaluation of
 # the block (if required) and be forwarded to the result object.
 #
+# As an aid to circular programming, the block will be passed its own
+# result.
+#
 def promise( &computation )
   Lazy::Thunk::new &computation
 end
