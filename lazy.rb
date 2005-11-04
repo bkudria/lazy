@@ -18,15 +18,15 @@ class Thunk < SimpleDelegator
   end
   def __getobj__
     if @computation
-      result = @computation.call( self )
+      result = force( @computation.call( self ) )
       initialize_methods result
       __setobj__ result
       @computation = nil
     end
     super
   end
-  def method_missing(*args, &block)
-    __getobj__.send(*args, &block)
+  def method_missing( *args, &block )
+    __getobj__.send( *args, &block )
   end
   alias __force__ __getobj__
 end
@@ -59,7 +59,7 @@ end
 def force( promise )
   if promise.respond_to? :__force__
     promise.__force__
-  else
+  else # not really a promise
     promise
   end
 end
