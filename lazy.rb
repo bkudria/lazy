@@ -10,7 +10,8 @@
 module Lazy
 
 # Raised when a forced computation diverges (e.g. if it tries to force its
-# own result or throws an exception)
+# own result, or throws an exception)
+#
 class DivergenceError < Exception
   # the exception, if any, that caused the divergence
   attr_reader :reason
@@ -18,46 +19,49 @@ class DivergenceError < Exception
   def initialize( reason=nil )
     @reason = reason
     message = "Computation diverges"
-    if reason
-      set_backtrace( reason.backtrace )
-      message = "#{ message }: #{ reason } (#{ reason.class })"
-    end
+    message = "#{ message }: #{ reason } (#{ reason.class })" if reason
     super( message )
+    set_backtrace( reason.backtrace ) if reason
   end
 end
 
 class Thunk #:nodoc: all
-  DIVERGES = lambda { raise DivergenceError::new }
   instance_methods.each { |m| undef_method m unless m =~ /^__/ }
+
   def initialize( &computation )
     @computation = computation
   end
+
+  # create this once here, rather than creating another proc object for
+  # every evaluation
+  DIVERGES = lambda { raise DivergenceError::new }
+
   def __force__
     if @computation
-      # clone to maintain clean backtrace
-      raise @exception.clone if @exception
+      raise DivergenceError::new @exception if @exception
 
       computation = @computation
-      @computation = DIVERGES # trap divergences due to recursion
+      @computation = DIVERGES # trap divergence due to over-eager recursion
 
       begin
         @result = force( computation.call( self ) )
         @computation = nil
+      rescue DivergenceError
+        raise
       rescue Exception => exception
-        # handle divergences due to exceptions
-        if exception.kind_of? DivergenceError
-          @exception = exception
-        else
-          @exception = DivergenceError::new exception
-        end
-        raise @exception.clone
+        # handle exceptions
+        @exception = exception
+        raise DivergenceError::new @exception
       end
     end
+
     @result
   end
+
   def method_missing( *args, &block )
     __force__.send( *args, &block )
   end
+
   def respond_to?( message )
     message = message.to_sym
     if message == :__force__
@@ -65,14 +69,6 @@ class Thunk #:nodoc: all
     else
       __force__.respond_to? message
     end
-  end
-end
-
-class Stream
-  attr_reader :head, :rest
-  def initialize( head, rest )
-    @head = head
-    @rest = rest
   end
 end
 
@@ -99,7 +95,8 @@ end
 
 # Forces the value of a promise and returns it.  If the promise has not
 # been evaluated yet, it will be evaluated and its result remebered
-# for future calls to force().
+# for future calls to force().  Nested promises will be evaluated until
+# a non-promise result is arrived at.
 #
 # If called on a value that is not a promise, it will simply return it.
 #
