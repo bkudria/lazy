@@ -10,7 +10,12 @@
 module Lazy
 
 # Raised when a forced computation diverges (e.g. if it tries to force its
-# own result, or throws an exception)
+# own result, or raises an exception).
+#
+# The reason we raise evaluation exceptions wrapped in a DivergenceError
+# rather than directly is because they can happen at any time, and need
+# to be distinguishable from similar exceptions which could be raised by 
+# whatever strict code happens to force evaluation of a promise.
 #
 class DivergenceError < Exception
   # the exception, if any, that caused the divergence
@@ -38,7 +43,7 @@ class Thunk #:nodoc: all
 
   def __force__
     if @computation
-      raise DivergenceError::new @exception if @exception
+      raise DivergenceError::new( @exception ) if @exception
 
       computation = @computation
       @computation = DIVERGES # trap divergence due to over-eager recursion
@@ -51,7 +56,7 @@ class Thunk #:nodoc: all
       rescue Exception => exception
         # handle exceptions
         @exception = exception
-        raise DivergenceError::new @exception
+        raise DivergenceError::new( @exception )
       end
     end
 
