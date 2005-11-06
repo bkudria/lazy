@@ -69,14 +69,219 @@ class Thunk #:nodoc: all
 
   def respond_to?( message )
     message = message.to_sym
-    if message == :__force__
-      true
-    else
-      __force__.respond_to? message
-    end
+    message == :__force__ or __force__.respond_to? message
   end
 end
 
+class Cons
+  attr_reader :first
+  attr_reader :rest
+
+  def initialize(first, rest)
+    @first = first
+    @rest = rest
+  end
+
+  class << self
+    alias strict_new new
+
+    def new( &constructor )
+      if constructor
+        promise {
+          first, rest = constructor.call
+          strict_new( first, rest )
+        }
+      else
+        nil
+      end
+    end
+  end
+
+  def to_lazy_stream
+    Stream::new self
+  end
+end
+
+def generate( &generator )
+  promise { generator.call( generate( &generator ) ) }
+end
+module_function :generate
+
+def generate_infinite_list( &generator )
+  generate { |rest| Cons::strict_new( generator.call, rest ) }
+end
+module_function :generate_infinite_list
+
+def map_list( head, &f )
+  promise {
+    head = force head
+    if head
+      Cons::strict_new( f.call( head.first ), map_list( head.rest, &f ) )
+    else
+      nil
+    end
+  }
+end
+module_function :map_list
+
+def select_list( head, &pred )
+  promise {
+    head = force head
+    if head
+      value = head.first
+      rest = select_list( head.rest, &pred )
+      if pred.call value
+        Cons::strict_new( value, rest )
+      else
+        rest
+      end
+    else
+      nil
+    end
+  }
+end
+module_function :select_list
+
+def grep_list( head, re, &block )
+  promise {
+    head = force head
+    if head
+      value = head.first
+      rest = grep_list( head, re, &block )
+      if re === value
+        value = block.call value if block
+        Cons::strict_new( value, rest )
+      else
+        rest
+      end
+    else
+      nil
+    end
+  }
+end
+module_function :grep_list
+
+def reject_list( head, &pred )
+  select_list( head ) { |value| !pred.call( value ) }
+end
+module_function :reject_list
+
+def partition_list( head, &pred )
+  [ select_list( head, &pred ), reject_list( head, &pred ) ]
+end
+module_function :partition_list
+
+def partition_list_slow( head, &pred )
+  cached_head = map_list( head ) { |value| [ pred.call( value ), value ] }
+  true_head = map_list( select_list( cached_head ) { |pair| pair[0] } ) {
+    pair[1]
+  }
+  false_head = map_list( reject_list( cached_head ) { |pair| pair[0] } ) {
+    pair[1]
+  }
+  [ true_head, false_head ]
+end
+module_function :partition_list_slow
+
+def zip_list( *heads )
+  promise {
+    heads.map! { |head| force head }
+    if heads[0]
+      values = heads.map { |head| head ? head.first : nil }
+      rest = zip_list( *heads.map { |head| head ? head.rest : nil } )
+      Cons::strict_new( values, rest )
+    else
+      nil
+    end
+  }
+end
+module_function :zip_list
+
+def unzip_list( head, n=2 )
+  (0...n).map { |i| map_list( head ) { |tuple| tuple[i] } }
+end
+module_function :unzip_list
+
+class Stream
+  include Enumerable
+
+  attr_reader :head
+
+  def initialize( head )
+    @head = head
+  end
+
+  def Stream.generate( &generator )
+    Stream::new Lazy::generate( &generator )
+  end
+
+  def Stream.generate_infinite( &generator )
+    Stream::new Lazy::generate_infinite_list( &generator )
+  end
+
+  def each
+    while @head
+      yield @head.first
+      @head = @head.rest
+    end
+  end
+
+  def empty? ; @head.nil? ; end
+
+  def sgrep( re, &block )
+    Stream::new( Lazy::grep_list( @head, re, &block ) )
+  end
+
+  def smap( &f )
+    Stream::new( Lazy::map_list( @head, &f ) )
+  end
+  alias scollect smap
+
+  def sselect( &pred )
+    Stream::new( Lazy::select_list( @head, &pred ) ) 
+  end
+  alias sfind_all sselect
+
+  def sreject( &pred )
+    Stream::new( Lazy::reject_list( @head, &pred ) )
+  end
+
+  def spartition( &pred )
+    true_head, false_head = Lazy::partition_list( @head, &pred )
+    [ Stream::new( true_head ), Stream::new( false_head ) ]
+  end
+
+  def spartition_slow( &pred )
+    true_head, false_head = Lazy::partition_list_slow( @head, &pred )
+    [ Stream::new( true_head ), Stream::new( false_head ) ]
+  end
+
+  def szip( *streams )
+    heads = streams.map { |s| s.to_lazy_stream.head }
+    Stream::new Lazy::zip_list( @head, *heads )
+  end
+
+  def sunzip( n=2 )
+    Lazy::unzip_list( @head, n ).map { |head| Stream::new head }
+  end
+
+  def to_lazy_stream ; self ; end
+end
+
+end
+
+class NilClass
+  def to_lazy_stream ; Lazy::Stream::new nil ; end
+end
+
+class Array
+  def to_lazy_stream
+    promise {
+      reverse.inject( nil ) { |head, obj|
+        Lazy::Cons::strict_new( obj, head )
+      }
+    }
+  end
 end
 
 module Kernel
