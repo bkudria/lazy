@@ -221,8 +221,9 @@ class Stream
 
   def each
     while @head
-      yield @head.first
-      @head = @head.rest
+      head = force @head
+      @head = head.rest
+      yield head.first
     end
   end
 
