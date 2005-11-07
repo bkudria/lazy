@@ -30,7 +30,7 @@ class DivergenceError < Exception
   end
 end
 
-class Thunk #:nodoc: all
+class Promise #:nodoc: all
   instance_methods.each { |m| undef_method m unless m =~ /^__/ }
 
   def initialize( &computation )
@@ -73,9 +73,13 @@ class Thunk #:nodoc: all
   end
 end
 
+# A cell in a lazy list; here, an actual lazy list should begin with a promise
+# for a computation that produces a cell (or nil) rather than a bare cell (or
+# bare nil) -- this is the difference between "even" and "odd" lazy lists
+# (this library, like Haskell etc., uses "even" lazy lists).
 class Cons
-  attr_reader :first
-  attr_reader :rest
+  attr_reader :first # the first value in the list
+  attr_reader :rest  # the remainder of the list; should be a promised computation
 
   def initialize(first, rest)
     @first = first
@@ -83,8 +87,14 @@ class Cons
   end
 
   class << self
+    # Creates a bare cell rather than a promise for one.  Useful as a minor
+    # optimization in cases where there is guaranteed to be an enclosing
+    # promise, but not required.  Stacked promises are not semantically
+    # distinguished from a single promise.
     alias strict_new new
 
+    # Creates a promise for a cell, given a block that produces a
+    # ( first, rest ) pair.
     def new( &constructor )
       if constructor
         promise {
@@ -107,8 +117,8 @@ def generate( &generator )
 end
 module_function :generate
 
-def generate_infinite_list( &generator )
-  generate { |rest| Cons::strict_new( generator.call, rest ) }
+def generate_infinite_list( &proc )
+  generate { |rest| Cons::strict_new( proc.call, rest ) }
 end
 module_function :generate_infinite_list
 
@@ -205,16 +215,19 @@ module_function :unzip_list
 class Stream
   include Enumerable
 
-  attr_reader :head
+  attr_reader :head # the next computation in the stream
 
   def initialize( head )
     @head = head
   end
 
+  # Creates a stream using the given generator (see Lazy::generate)
   def Stream.generate( &generator )
     Stream::new Lazy::generate( &generator )
   end
 
+  # Creates an infinite stream where each computation 
+  # to the given generator block (see Lazy::generate_infinite_list)
   def Stream.generate_infinite( &generator )
     Stream::new Lazy::generate_infinite_list( &generator )
   end
@@ -301,7 +314,7 @@ module Kernel
 # for its own result when it is evaluated.
 #
 def promise( &computation )
-  Lazy::Thunk::new &computation
+  Lazy::Promise::new &computation
 end
 
 # Forces the value of a promise and returns it.  If the promise has not
