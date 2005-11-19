@@ -108,7 +108,7 @@ end
 module_function :infinite_stream
 
 # Maps one stream to another; each value in the result stream is the result
-# of calling the given block is on each value from the original stream. 
+# of calling the given block on each value from the original stream. 
 def map_stream( head, &f ) #:yields: value
   promise {
     head = demand head
