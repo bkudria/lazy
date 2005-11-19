@@ -15,7 +15,8 @@ module Lazy
 # The reason we raise evaluation exceptions wrapped in a DivergenceError
 # rather than directly is because they can happen at any time, and need
 # to be distinguishable from similar exceptions which could be raised by 
-# whatever strict code happens to demand evaluation of a promise.
+# whatever strict code we happen to be in at the moment the result is
+# demanded.
 #
 class DivergenceError < Exception
   # the exception, if any, that caused the divergence
