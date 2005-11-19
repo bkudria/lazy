@@ -68,14 +68,14 @@ module_function :cons_stream
 #
 # Among other things, it can be used to build lazy streams:
 #
-# Lazy::iterate do |rest|
-#   if termination_condition
-#     nil
-#   else
-#     result = something
-#     cons( result, rest )
-#   end
-# end
+#  Lazy::iterate do |rest|
+#    if termination_condition
+#      nil
+#    else
+#      result = something
+#      cons( result, rest )
+#    end
+#  end
 #
 # For infinite streams, the convenience wrapper Lazy::infinite_stream
 # is provided.
@@ -93,13 +93,13 @@ module_function :iterate
 # For example, a stream producing the Fibonacci sequence can be
 # constructed as follows:
 #
-# state = [ 1, 0 ]
-# Lazy::infinite_stream do 
-#   value = state[0] + state[1]
-#   state[0] = state[1]
-#   state[1] = value
-#   value
-# end
+#  state = [ 1, 0 ]
+#  Lazy::infinite_stream do 
+#    value = state[0] + state[1]
+#    state[0] = state[1]
+#    state[1] = value
+#    value
+#  end
 #
 # @see Lazy::iterate
 def infinite_stream( &proc ) #:yields:
