@@ -73,6 +73,8 @@ class Promise #:nodoc: all
   end
 end
 
+end
+
 module Kernel
 
 # The promise() function is used together with demand() to implement
@@ -106,7 +108,6 @@ def demand( promise )
     promise
   end
 end
-
 alias force demand
 
 end
