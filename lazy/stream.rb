@@ -36,7 +36,7 @@ class Cons
     # in the form of a block that produces either a [first, rest]
     # pair or nil.  'first' may be any sort of value, while 'rest' should
     # be a promise for the remainder of the stream (or nil).
-    def new( &constructor )
+    def new( &constructor ) #:yields:
       if constructor
         promise {
           pair = constructor.call
@@ -58,7 +58,7 @@ end
 # should return a [first, rest] pair.  A wrapper around Lazy::Cons::new
 #
 # @see Lazy::Cons::new
-def cons_stream( &computation ) ; Cons::new( &computation ) ; end
+def cons_stream( &computation ) ; Cons::new( &computation ) ; end #:yields:
 module_function :cons_stream
 
 # Implements iteration in terms of lazy evaluation; superficially
@@ -81,7 +81,7 @@ module_function :cons_stream
 # is provided.
 #
 # @see Lazy::infinite_stream
-def iterate( &generator )
+def iterate( &generator ) #:yields: next_result
   promise { generator.call( iterate( &generator ) ) }
 end
 module_function :iterate
@@ -102,14 +102,14 @@ module_function :iterate
 # end
 #
 # @see Lazy::iterate
-def infinite_stream( &proc )
+def infinite_stream( &proc ) #:yields:
   iterate { |rest| Cons::strict_new( proc.call, rest ) }
 end
 module_function :infinite_stream
 
 # Maps one stream to another; each value in the result stream is the result
 # of calling the given block is on each value from the original stream. 
-def map_stream( head, &f )
+def map_stream( head, &f ) #:yields: value
   promise {
     head = demand head
     if head
@@ -125,7 +125,7 @@ module_function :map_stream
 # for which the predicate is true.  Lazy::reject_stream is its opposite.
 #
 # @see Lazy::reject_stream
-def select_stream( head, &pred )
+def select_stream( head, &pred ) #:yields: value
   promise {
     head = demand head
     if head
@@ -144,7 +144,7 @@ end
 module_function :select_stream
 
 # Like Enumerable#grep.
-def grep_stream( head, re, &block )
+def grep_stream( head, re, &block ) #:yields: value
   promise {
     head = demand head
     if head
@@ -165,7 +165,7 @@ module_function :grep_stream
 
 # Produces a stream which omits the values from the source stream for
 # which the given predicate is true.
-def reject_stream( head, &pred )
+def reject_stream( head, &pred ) #:yields: value
   select_stream( head ) { |value| !pred.call( value ) }
 end
 module_function :reject_stream
@@ -176,7 +176,7 @@ module_function :reject_stream
 # value, use Lazy::partition_stream_slow instead.
 #
 # @see Lazy::partition_stream_slow
-def partition_stream( head, &pred )
+def partition_stream( head, &pred ) #:yields: value
   [ select_stream( head, &pred ), reject_stream( head, &pred ) ]
 end
 module_function :partition_stream
@@ -191,7 +191,7 @@ module_function :partition_stream
 # very slow.
 #
 # @see Lazy::partition_stream
-def partition_stream_slow( head, &pred )
+def partition_stream_slow( head, &pred ) #:yields: value
   cached_head = map_stream( head ) { |value| [ pred.call( value ), value ] }
   true_head = map_stream( select_stream( cached_head ) { |pair| pair[0] } ) {
     pair[1]
@@ -234,7 +234,7 @@ class Stream
   # Creates a stream using the given generator
   #
   # @see Lazy::iterate
-  def Stream.iterate( &generator )
+  def Stream.iterate( &generator ) #:yields: next_result
     Stream::new Lazy::iterate( &generator )
   end
 
@@ -242,7 +242,7 @@ class Stream
   # to the given generator block.
   #
   # @see Lazy::infinite_stream
-  def Stream.infinite_stream( &generator )
+  def Stream.infinite_stream( &generator ) #:yields:
     Stream::new Lazy::infinite_stream( &generator )
   end
 
@@ -272,7 +272,7 @@ class Stream
   #
   # @see Enumerable#grep
   # @see Lazy::grep_stream
-  def sgrep( re, &block )
+  def sgrep( re, &block ) #:yields: value
     Stream::new( Lazy::grep_stream( consume, re, &block ) )
   end
 
@@ -281,7 +281,7 @@ class Stream
   #
   # @see Enumerable#map
   # @see Lazy::map_stream
-  def smap( &f )
+  def smap( &f ) #:yeilds: value
     Stream::new( Lazy::map_stream( consume, &f ) )
   end
   alias scollect smap
@@ -291,7 +291,7 @@ class Stream
   #
   # @see Enumerable#select
   # @see Lazy::select_stream
-  def sselect( &pred )
+  def sselect( &pred ) #:yields: value
     Stream::new( Lazy::select_stream( consume, &pred ) ) 
   end
   alias sfind_all sselect
@@ -301,7 +301,7 @@ class Stream
   #
   # @see Enumerable#reject
   # @see Lazy::reject_stream
-  def sreject( &pred )
+  def sreject( &pred ) #:yields: value
     Stream::new( Lazy::reject_stream( consume, &pred ) )
   end
 
@@ -310,7 +310,7 @@ class Stream
   #
   # @see Enumerable#partition
   # @see Lazy::partition_stream
-  def spartition( &pred )
+  def spartition( &pred ) #:yields: value
     true_head, false_head = Lazy::partition_stream( consume, &pred )
     [ Stream::new( true_head ), Stream::new( false_head ) ]
   end
@@ -321,7 +321,7 @@ class Stream
   #
   # @see Enumerable#partition
   # @see Lazy::partition_stream_slow
-  def spartition_slow( &pred )
+  def spartition_slow( &pred ) #:yields: value
     true_head, false_head = Lazy::partition_stream_slow( consume, &pred )
     [ Stream::new( true_head ), Stream::new( false_head ) ]
   end

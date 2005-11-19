@@ -91,7 +91,7 @@ module Kernel
 # As an aid to circular programming, the block will be passed a promise
 # for its own result when it is evaluated.
 #
-def promise( &computation )
+def promise( &computation ) #:yields: result
   Lazy::Promise::new &computation
 end
 
