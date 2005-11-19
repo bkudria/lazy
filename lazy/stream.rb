@@ -21,7 +21,7 @@ class Cons
   attr_reader :first # the first value in the list
   attr_reader :rest  # a promised computation for the remainder of the list
 
-  def initialize(first, rest)
+  def initialize(first, rest) #:notnew:
     @first = first
     @rest = rest
   end
