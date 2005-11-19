@@ -57,7 +57,7 @@ end
 # Constructs a cell in a lazy stream using the given block.  The block
 # should return a [first, rest] pair.  A wrapper around Lazy::Cons::new
 #
-# @see Lazy::Cons::new
+# See also Lazy::Cons::new
 def cons_stream( &computation ) ; Cons::new( &computation ) ; end #:yields:
 module_function :cons_stream
 
@@ -80,7 +80,7 @@ module_function :cons_stream
 # For infinite streams, the convenience wrapper Lazy::infinite_stream
 # is provided.
 #
-# @see Lazy::infinite_stream
+# See also Lazy::infinite_stream
 def iterate( &generator ) #:yields: next_result
   promise { generator.call( iterate( &generator ) ) }
 end
@@ -101,7 +101,7 @@ module_function :iterate
 #    value
 #  end
 #
-# @see Lazy::iterate
+# See also Lazy::iterate
 def infinite_stream( &proc ) #:yields:
   iterate { |rest| Cons::strict_new( proc.call, rest ) }
 end
@@ -124,7 +124,7 @@ module_function :map_stream
 # Produces a stream including only those values from the source stream
 # for which the predicate is true.  Lazy::reject_stream is its opposite.
 #
-# @see Lazy::reject_stream
+# See also Lazy::reject_stream
 def select_stream( head, &pred ) #:yields: value
   promise {
     head = demand head
@@ -175,7 +175,7 @@ module_function :reject_stream
 # stream).  If you only want the predicate to be called once for each
 # value, use Lazy::partition_stream_slow instead.
 #
-# @see Lazy::partition_stream_slow
+# See also Lazy::partition_stream_slow
 def partition_stream( head, &pred ) #:yields: value
   [ select_stream( head, &pred ), reject_stream( head, &pred ) ]
 end
@@ -190,7 +190,7 @@ module_function :partition_stream
 # or that it is better for use with predicates which are themselves
 # very slow.
 #
-# @see Lazy::partition_stream
+# See also Lazy::partition_stream
 def partition_stream_slow( head, &pred ) #:yields: value
   cached_head = map_stream( head ) { |value| [ pred.call( value ), value ] }
   true_head = map_stream( select_stream( cached_head ) { |pair| pair[0] } ) {
@@ -233,7 +233,7 @@ class Stream
 
   # Creates a stream using the given generator
   #
-  # @see Lazy::iterate
+  # See also Lazy::iterate
   def Stream.iterate( &generator ) #:yields: next_result
     Stream::new Lazy::iterate( &generator )
   end
@@ -241,7 +241,7 @@ class Stream
   # Creates an infinite stream where each computation 
   # to the given generator block.
   #
-  # @see Lazy::infinite_stream
+  # See also Lazy::infinite_stream
   def Stream.infinite_stream( &generator ) #:yields:
     Stream::new Lazy::infinite_stream( &generator )
   end
@@ -270,8 +270,8 @@ class Stream
   # Similar to Enumerable#grep, except it produces a Lazy::Stream
   # rather than an Array.
   #
-  # @see Enumerable#grep
-  # @see Lazy::grep_stream
+  # See also Enumerable#grep
+  # See also Lazy::grep_stream
   def sgrep( re, &block ) #:yields: value
     Stream::new( Lazy::grep_stream( consume, re, &block ) )
   end
@@ -279,8 +279,8 @@ class Stream
   # Similar to Enumerable#map, except it produces a Lazy::Stream
   # rather than an Array.
   #
-  # @see Enumerable#map
-  # @see Lazy::map_stream
+  # See also Enumerable#map
+  # See also Lazy::map_stream
   def smap( &f ) #:yeilds: value
     Stream::new( Lazy::map_stream( consume, &f ) )
   end
@@ -289,8 +289,8 @@ class Stream
   # Similar to Enumerable#select, except it produces a Lazy::Stream
   # rather than an Array.
   #
-  # @see Enumerable#select
-  # @see Lazy::select_stream
+  # See also Enumerable#select
+  # See also Lazy::select_stream
   def sselect( &pred ) #:yields: value
     Stream::new( Lazy::select_stream( consume, &pred ) ) 
   end
@@ -299,8 +299,8 @@ class Stream
   # Similar to Enumerable#reject, except it produces a Lazy::Stream
   # rather than an Array.
   #
-  # @see Enumerable#reject
-  # @see Lazy::reject_stream
+  # See also Enumerable#reject
+  # See also Lazy::reject_stream
   def sreject( &pred ) #:yields: value
     Stream::new( Lazy::reject_stream( consume, &pred ) )
   end
@@ -308,8 +308,8 @@ class Stream
   # Similar to Enumerable#partition, except it produces a Lazy::Stream
   # rather than an Array.  Returns a pair of streams.
   #
-  # @see Enumerable#partition
-  # @see Lazy::partition_stream
+  # See also Enumerable#partition
+  # See also Lazy::partition_stream
   def spartition( &pred ) #:yields: value
     true_head, false_head = Lazy::partition_stream( consume, &pred )
     [ Stream::new( true_head ), Stream::new( false_head ) ]
@@ -319,8 +319,8 @@ class Stream
   # rather than an Array.  Evaluates the predicate only once for each
   # value in the stream, but is otherwise slower than Stream#spartition.
   #
-  # @see Enumerable#partition
-  # @see Lazy::partition_stream_slow
+  # See also Enumerable#partition
+  # See also Lazy::partition_stream_slow
   def spartition_slow( &pred ) #:yields: value
     true_head, false_head = Lazy::partition_stream_slow( consume, &pred )
     [ Stream::new( true_head ), Stream::new( false_head ) ]
@@ -330,8 +330,8 @@ class Stream
   # than an Array.  Zips n streams (including this one) into a single
   # stream of n-tuples.
   # 
-  # @see Enumerable#zip
-  # @see Lazy::zip_stream
+  # See also Enumerable#zip
+  # See also Lazy::zip_stream
   def szip( *streams )
     heads = streams.map { |s| s.consume }
     Stream::new Lazy::zip_stream( consume, *heads )
@@ -339,7 +339,7 @@ class Stream
 
   # Unzips a stream of n-tuples into an Array of n streams.
   #
-  # @see Lazy::unzip_stream
+  # See also Lazy::unzip_stream
   def sunzip( n=2 )
     Lazy::unzip_stream( consume, n ).map { |head| Stream::new head }
   end
