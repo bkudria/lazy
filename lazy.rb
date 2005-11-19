@@ -9,13 +9,13 @@
 
 module Lazy
 
-# Raised when a forced computation diverges (e.g. if it tries to force its
+# Raised when a demanded computation diverges (e.g. if it tries to demand its
 # own result, or raises an exception).
 #
 # The reason we raise evaluation exceptions wrapped in a DivergenceError
 # rather than directly is because they can happen at any time, and need
 # to be distinguishable from similar exceptions which could be raised by 
-# whatever strict code happens to force evaluation of a promise.
+# whatever strict code happens to demand evaluation of a promise.
 #
 class DivergenceError < Exception
   # the exception, if any, that caused the divergence
@@ -41,7 +41,7 @@ class Promise #:nodoc: all
   # every evaluation
   DIVERGES = lambda { raise DivergenceError::new }
 
-  def __force__
+  def __result__
     if @computation
       raise DivergenceError::new( @exception ) if @exception
 
@@ -49,7 +49,7 @@ class Promise #:nodoc: all
       @computation = DIVERGES # trap divergence due to over-eager recursion
 
       begin
-        @result = force( computation.call( self ) )
+        @result = demand( computation.call( self ) )
         @computation = nil
       rescue DivergenceError
         raise
@@ -64,252 +64,24 @@ class Promise #:nodoc: all
   end
 
   def method_missing( *args, &block )
-    __force__.send( *args, &block )
+    __result__.send( *args, &block )
   end
 
   def respond_to?( message )
     message = message.to_sym
-    message == :__force__ or __force__.respond_to? message
-  end
-end
-
-# A cell in a lazy list; here, an actual lazy list should begin with a promise
-# for a computation that produces a cell (or nil) rather than a bare cell (or
-# bare nil) -- this is the difference between "even" and "odd" lazy lists
-# (this library, like Haskell etc., uses "even" lazy lists).
-class Cons
-  attr_reader :first # the first value in the list
-  attr_reader :rest  # the remainder of the list; should be a promised computation
-
-  def initialize(first, rest)
-    @first = first
-    @rest = rest
-  end
-
-  class << self
-    # Creates a bare cell rather than a promise for one.  Useful as a minor
-    # optimization in cases where there is guaranteed to be an enclosing
-    # promise, but not required.  Stacked promises are not semantically
-    # distinguished from a single promise.
-    alias strict_new new
-
-    # Creates a promise for a cell, given a block that produces a
-    # ( first, rest ) pair.
-    def new( &constructor )
-      if constructor
-        promise {
-          first, rest = constructor.call
-          strict_new( first, rest )
-        }
-      else
-        nil
-      end
-    end
-  end
-
-  def to_lazy_stream
-    Stream::new self
-  end
-end
-
-def generate( &generator )
-  promise { generator.call( generate( &generator ) ) }
-end
-module_function :generate
-
-def generate_infinite_list( &proc )
-  generate { |rest| Cons::strict_new( proc.call, rest ) }
-end
-module_function :generate_infinite_list
-
-def map_list( head, &f )
-  promise {
-    head = force head
-    if head
-      Cons::strict_new( f.call( head.first ), map_list( head.rest, &f ) )
-    else
-      nil
-    end
-  }
-end
-module_function :map_list
-
-def select_list( head, &pred )
-  promise {
-    head = force head
-    if head
-      value = head.first
-      rest = select_list( head.rest, &pred )
-      if pred.call value
-        Cons::strict_new( value, rest )
-      else
-        rest
-      end
-    else
-      nil
-    end
-  }
-end
-module_function :select_list
-
-def grep_list( head, re, &block )
-  promise {
-    head = force head
-    if head
-      value = head.first
-      rest = grep_list( head, re, &block )
-      if re === value
-        value = block.call value if block
-        Cons::strict_new( value, rest )
-      else
-        rest
-      end
-    else
-      nil
-    end
-  }
-end
-module_function :grep_list
-
-def reject_list( head, &pred )
-  select_list( head ) { |value| !pred.call( value ) }
-end
-module_function :reject_list
-
-def partition_list( head, &pred )
-  [ select_list( head, &pred ), reject_list( head, &pred ) ]
-end
-module_function :partition_list
-
-def partition_list_slow( head, &pred )
-  cached_head = map_list( head ) { |value| [ pred.call( value ), value ] }
-  true_head = map_list( select_list( cached_head ) { |pair| pair[0] } ) {
-    pair[1]
-  }
-  false_head = map_list( reject_list( cached_head ) { |pair| pair[0] } ) {
-    pair[1]
-  }
-  [ true_head, false_head ]
-end
-module_function :partition_list_slow
-
-def zip_list( *heads )
-  promise {
-    heads.map! { |head| force head }
-    if heads[0]
-      values = heads.map { |head| head ? head.first : nil }
-      rest = zip_list( *heads.map { |head| head ? head.rest : nil } )
-      Cons::strict_new( values, rest )
-    else
-      nil
-    end
-  }
-end
-module_function :zip_list
-
-def unzip_list( head, n=2 )
-  (0...n).map { |i| map_list( head ) { |tuple| tuple[i] } }
-end
-module_function :unzip_list
-
-class Stream
-  include Enumerable
-
-  attr_reader :head # the next computation in the stream
-
-  def initialize( head )
-    @head = head
-  end
-
-  # Creates a stream using the given generator (see Lazy::generate)
-  def Stream.generate( &generator )
-    Stream::new Lazy::generate( &generator )
-  end
-
-  # Creates an infinite stream where each computation 
-  # to the given generator block (see Lazy::generate_infinite_list)
-  def Stream.generate_infinite( &generator )
-    Stream::new Lazy::generate_infinite_list( &generator )
-  end
-
-  def each
-    while @head
-      head = force @head
-      begin
-        yield head.first
-      ensure
-        @head = head.rest
-      end
-    end
-  end
-
-  def empty? ; @head.nil? ; end
-
-  def sgrep( re, &block )
-    Stream::new( Lazy::grep_list( @head, re, &block ) )
-  end
-
-  def smap( &f )
-    Stream::new( Lazy::map_list( @head, &f ) )
-  end
-  alias scollect smap
-
-  def sselect( &pred )
-    Stream::new( Lazy::select_list( @head, &pred ) ) 
-  end
-  alias sfind_all sselect
-
-  def sreject( &pred )
-    Stream::new( Lazy::reject_list( @head, &pred ) )
-  end
-
-  def spartition( &pred )
-    true_head, false_head = Lazy::partition_list( @head, &pred )
-    [ Stream::new( true_head ), Stream::new( false_head ) ]
-  end
-
-  def spartition_slow( &pred )
-    true_head, false_head = Lazy::partition_list_slow( @head, &pred )
-    [ Stream::new( true_head ), Stream::new( false_head ) ]
-  end
-
-  def szip( *streams )
-    heads = streams.map { |s| s.to_lazy_stream.head }
-    Stream::new Lazy::zip_list( @head, *heads )
-  end
-
-  def sunzip( n=2 )
-    Lazy::unzip_list( @head, n ).map { |head| Stream::new head }
-  end
-
-  def to_lazy_stream ; self ; end
-end
-
-end
-
-class NilClass
-  def to_lazy_stream ; Lazy::Stream::new nil ; end
-end
-
-class Array
-  def to_lazy_stream
-    promise {
-      reverse.inject( nil ) { |head, obj|
-        Lazy::Cons::strict_new( obj, head )
-      }
-    }
+    message == :__result__ or __result__.respond_to? message
   end
 end
 
 module Kernel
 
-# The promise() function is used together with force() to implement
+# The promise() function is used together with demand() to implement
 # lazy evaluation.  It returns a promise to evaluate the provided
-# block at a future time.  Evaluation can be forced and the block's
-# result obtained via the force() function.
+# block at a future time.  Evaluation can be demanded and the block's
+# result obtained via the demand() function.
 #
 # Implicit evaluation is also supported: a promise can usually be used
-# as a proxy for the result; the first message sent to it will force
+# as a proxy for the result; the first message sent to it will demand
 # evaluation, and that message and any subsequent messages will be
 # forwarded to the result object.
 #
@@ -322,17 +94,19 @@ end
 
 # Forces the value of a promise and returns it.  If the promise has not
 # been evaluated yet, it will be evaluated and its result remebered
-# for future calls to force().  Nested promises will be evaluated until
+# for future calls to demand().  Nested promises will be evaluated until
 # a non-promise result is arrived at.
 #
 # If called on a value that is not a promise, it will simply return it.
 #
-def force( promise )
-  if promise.respond_to? :__force__
-    promise.__force__
+def demand( promise )
+  if promise.respond_to? :__result__
+    promise.__result__
   else # not really a promise
     promise
   end
 end
+
+alias force demand
 
 end
