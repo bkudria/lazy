@@ -1,0 +1,8 @@
+lazy.rb is an implementation of lazy evaluation in Ruby, similar to the facilities provided by R5 Scheme.
+
+It provides two functions: promise (similar to Scheme's delay) which takes a block for later evaluation, and demand (similar to Scheme's force), which forces its evaluation if necessary and returns the cached result.
+
+Unlike some Scheme implementations, it is safe to pass ordinary values to force. Implicit evaluation is also supported, as the promise can be used directly in place of the computation's result.
+
+It is available under the same license as Ruby.
+
