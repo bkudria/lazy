@@ -319,8 +319,8 @@ class Stream
     self
   end
 
-  # Like Lazy::Stream#each, but advances the Lazy::Stream's reference
-  # to the head of the stream with each iteration.
+  # Like Lazy::Stream#each, but advances Lazy::Stream's head reference
+  # with each iteration, "consuming" it.
   #
   def each_consume #:yields: value
     @head = demand @head
