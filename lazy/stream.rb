@@ -1,4 +1,4 @@
-# = lazy.rb -- Lazy evaluation in Ruby
+# = lazy/stream.rb -- Even lazy streams in Ruby
 #
 # Author:: MenTaLguY
 #
@@ -60,25 +60,24 @@ end
 # cons_stream is sufficient to generate streams in a purely functional
 # fashion; for example:
 #
-#  def integers_from( n )
+#  def integers_from( n=0 )
 #    Lazy.cons_stream { [ n, integers_from( n + 1 ) ] }
 #  end
 #
 # and:
 #
-#  def fibs_( a, b )
+#  def fibs( a=1, b=0 )
 #    Lazy.cons_stream do
 #      sum = a + b
-#      [ sum, fibs_(b, sum) ]
+#      [ sum, fibs(b, sum) ]
 #    end
 #  end
 #
-#  def fibs ; fibs_(1, 0) ; end
+# Two functions, Lazy.generate_stream and Lazy.generate_infinite_stream, are
+# provided for generating streams in a more imperative fashion.
 #
-# Two functions, Lazy.iterate and Lazy.infinite_stream, are provided
-# for generating streams in a more imperative fashion.
-#
-# See also Lazy.iterate, Lazy.infinite_stream, and Lazy::Cons.new
+# See also Lazy.generate_stream, Lazy.generate_infinite_stream, and
+# Lazy::Cons.new
 #
 def cons_stream( &computation ) ; Cons.new( &computation ) ; end #:yields:
 module_function :cons_stream
@@ -91,39 +90,43 @@ module_function :cons_stream
 # This is icky and relies on side-effects to do anything useful,
 # but it is a concession to doing things somewhat idiomatically in Ruby.
 #
-# Among other things, it can be used to build lazy streams:
+def iterate( &block ) #:yields: next_result
+  promise { block.call( iterate( &block ) ) }
+end
+module_function :iterate
+
 #
-#  Lazy.iterate do |rest|
-#    Lazy.cons_stream do
-#      if termination_condition
-#        nil
-#      else
-#        result = something
-#        [ result, rest ]
-#      end
+# Lazy.generate_stream can be used to build lazy streams.  Its block is
+# passed a promise for the remainder of the stream, and the result
+# of the block is interpreted in the same fashion as Lazy.cons_stream's.
+#
+#  Lazy.generate_stream do |tail|
+#    if termination_condition
+#      nil
+#    else
+#      result = something
+#      [ result, tail ]
 #    end
 #  end
 #
 # For generating infinite streams, the convenience wrapper
-# Lazy.infinite_stream # is provided.
+# Lazy.generate_infinite_stream # is provided.
 #
 # An unfold for lazy streams could be written in terms of it:
 #
 #  def unfold( p, f, g, x )
-#    Lazy.iterate do |rest|
-#      Lazy.cons_stream do
-#        if p x
-#          nil
-#        else
-#          value = f.call( x )
-#          x = g.call( x )
-#          [ value, rest ]
-#        end
+#    Lazy.generate_stream do |tail|
+#      if p x
+#        nil
+#      else
+#        value = f.call( x )
+#        x = g.call( x )
+#        [ value, tail ]
 #      end
 #    end
 #  end
 #
-# (Although the following definition is probably more elegant...)
+# Although the purely functional definition is probably more elegant:
 #
 #  def unfold( p, f, g, x )
 #    Lazy.cons_stream do
@@ -135,12 +138,12 @@ module_function :cons_stream
 #    end
 #  end
 #
-# See also Lazy.infinite_stream
+# See also Lazy.cons_stream Lazy.generate_infinite_stream
 #
-def iterate( &generator ) #:yields: next_result
-  promise { generator.call( iterate( &generator ) ) }
+def generate_stream( &generator ) #:yields: tail
+  stream_cons { generator.call( generate_stream( &generator ) ) }
 end
-module_function :iterate
+module_function :generate_stream
 
 # Constructs an infinite lazy stream, where each value in the stream
 # is produced by a call to the given block.  It is a wrapper around
@@ -150,19 +153,19 @@ module_function :iterate
 # constructed as follows:
 #
 #  state = [ 1, 0 ]
-#  Lazy.infinite_stream do 
+#  Lazy.generate_infinite_stream do 
 #    value = state[0] + state[1]
 #    state[0] = state[1]
 #    state[1] = value
 #    value
 #  end
 #
-# See also Lazy.iterate
+# See also Lazy.generate_stream
 #
-def infinite_stream( &proc ) #:yields:
-  iterate { |rest| Cons.strict_new( proc.call, rest ) }
+def generate_infinite_stream( &proc ) #:yields:
+  iterate { |tail| Cons.strict_new( proc.call, tail ) }
 end
-module_function :infinite_stream
+module_function :generate_infinite_stream
 
 # Maps one stream to another; each value in the result stream is the result
 # of calling the given block on each value from the original stream. 
@@ -188,11 +191,11 @@ def select_stream( head, &pred ) #:yields: value
     head = demand head
     if head
       value = head.first
-      rest = select_stream( head.rest, &pred )
+      tail = select_stream( head.rest, &pred )
       if pred.call value
-        Cons.strict_new( value, rest )
+        Cons.strict_new( value, tail )
       else
-        rest
+        tail
       end
     else
       nil
@@ -207,12 +210,12 @@ def grep_stream( head, re, &block ) #:yields: value
     head = demand head
     if head
       value = head.first
-      rest = grep_stream( head, re, &block )
+      tail = grep_stream( head, re, &block )
       if re === value
         value = block.call value if block
-        Cons.strict_new( value, rest )
+        Cons.strict_new( value, tail )
       else
-        rest
+        tail
       end
     else
       nil
@@ -267,8 +270,8 @@ def zip_stream( *heads )
     heads.map! { |head| demand head }
     if heads[0]
       values = heads.map { |head| head ? head.first : nil }
-      rest = zip_stream( *heads.map { |head| head ? head.rest : nil } )
-      Cons.strict_new( values, rest )
+      tail = zip_stream( *heads.map { |head| head ? head.rest : nil } )
+      Cons.strict_new( values, tail )
     else
       nil
     end
@@ -296,26 +299,27 @@ class Stream
     @head = head
   end
 
-  # Creates a stream using the given generator
+  # Generates a stream using the given block
   #
-  # See Lazy.iterate
-  def Stream.iterate( &generator ) #:yields: next_result
-    Stream.new Lazy.iterate( &generator )
+  # See Lazy.generate_stream
+  #
+  def Stream.generate( &generator ) #:yields: next_result
+    Stream.new Lazy.generate( &generator )
   end
 
   # Creates an infinite stream where each computation 
   # is a call to the given block.
   #
-  # See Lazy.infinite_stream
+  # See Lazy.generate_infinite
   #
-  def Stream.infinite_stream( &generator ) #:yields:
-    Stream.new Lazy.infinite_stream( &generator )
+  def Stream.generate_infinite( &generator ) #:yields:
+    Stream.new Lazy.generate_infinite_stream( &generator )
   end
 
   # Implements Enumerable#each.
   #
   def each( &block ) #:yields: value
-    self.dup.each_consume( &block )
+    dup.each_consume( &block )
     self
   end
 
@@ -327,11 +331,8 @@ class Stream
     while @head
       value = @head.first
       @head = @head.rest
-      begin
-        yield value
-      ensure # incase of 'next'
-        @head = demand @head
-      end
+      yield value
+      @head = demand @head
     end
     self
   end
