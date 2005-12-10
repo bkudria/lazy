@@ -1,0 +1,24 @@
+--- %YAML:1.0
+- version: 0.2
+  date: 2005-12-10
+  changes:
+    lazy/stream.rb: added lazy streams with an Enumerable wrapper
+    lazy.rb:
+    - Lazy::Thunk becomes Lazy::Promise
+    - Lazy::Promise#inspect won't force evaluation anymore, but becomes
+      transparent once it is evaluated.  This makes life in irb much
+      easier.  Thanks to Tom Payne for the idea.
+    - rename force to demand (force is still available as an alias)
+    - rdoc tweaks
+    - dup reason backtrace rather than using it directly in DivergenceError
+    README: added
+    COPYING: added
+    CHANGELOG: added
+
+- version: 0.1
+  date: 2005-10-05
+  changes:
+    lazy.rb:
+    - trap diverging computations and terminate with DivergenceError
+    - make thunks mostly transparent
+

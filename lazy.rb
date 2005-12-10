@@ -27,7 +27,7 @@ class DivergenceError < Exception
     message = "Computation diverges"
     message = "#{ message }: #{ reason } (#{ reason.class })" if reason
     super( message )
-    set_backtrace( reason.backtrace ) if reason
+    set_backtrace( reason.backtrace.dup ) if reason
   end
 end
 
@@ -64,13 +64,23 @@ class Promise #:nodoc: all
     @result
   end
 
-  def method_missing( *args, &block )
-    __result__.send( *args, &block )
+  def inspect
+    if @computation
+      "#<Lazy::Promise computation=#{ @computation.inspect }>"
+    else
+      @result.inspect
+    end
   end
 
   def respond_to?( message )
     message = message.to_sym
-    message == :__result__ or __result__.respond_to? message
+    message == :__result__ or
+    message == :inspect or
+    __result__.respond_to? message
+  end
+
+  def method_missing( *args, &block )
+    __result__.send( *args, &block )
   end
 end
 
