@@ -51,7 +51,6 @@ class Cons
       end
     end
   end
-
 end
 
 # Constructs a cell in a lazy stream using the given block.  The block
