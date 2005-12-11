@@ -141,7 +141,7 @@ module_function :iterate
 # See also Lazy.cons_stream Lazy.generate_infinite_stream
 #
 def generate_stream( &generator ) #:yields: tail
-  stream_cons { generator.call( generate_stream( &generator ) ) }
+  cons_stream { generator.call( generate_stream( &generator ) ) }
 end
 module_function :generate_stream
 
