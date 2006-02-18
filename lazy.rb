@@ -2,54 +2,65 @@
 #
 # Author:: MenTaLguY
 #
-# Copyright 2005  MenTaLguY <mental@rydia.net>
+# Copyright 2005-2006  MenTaLguY <mental@rydia.net>
 #
 # You may redistribute it and/or modify it under the same terms as Ruby.
 #
 
 module Lazy
 
-# Raised when a demanded computation diverges (e.g. if it tries to demand its
-# own result, or raises an exception).
-#
-# The reason we raise evaluation exceptions wrapped in a DivergenceError
-# rather than directly is because they can happen at any time, and need
-# to be distinguishable from similar exceptions which could be raised by 
-# whatever strict code we happen to be in at the moment the result is
-# demanded.
+# Raised when a demanded computation diverges (e.g. if it tries to directly
+# use its own result)
 #
 class DivergenceError < Exception
-  # the exception, if any, that caused the divergence
+  def initialize( message="Computation diverges" )
+    super( message )
+  end
+end
+
+# Wraps an exception raised by a lazy computation.
+#
+# The reason we wrap such exceptions in LazyException is that they need to
+# be distinguishable from similar exceptions which might normally be raised
+# by whatever strict code we happen to be in at the time.
+#
+class LazyException < DivergenceError
+  # the original exception
   attr_reader :reason
 
-  def initialize( reason=nil )
+  def initialize( reason )
     @reason = reason
-    message = "Computation diverges"
-    message = "#{ message }: #{ reason } (#{ reason.class })" if reason
-    super( message )
+    super( "Exception in lazy computation: #{ reason } (#{ reason.class })" )
     set_backtrace( reason.backtrace.dup ) if reason
   end
 end
 
+# A handle for a promised computation.  In most cases, it can be used
+# as a proxy for the computation's result object.  The one exception
+# is truth testing -- a promise will always look true to Ruby, regardless
+# of the actual result object.
+#
+# If you want to test truth, get the unwrapped result object from
+# Kernel.demand.
+#
 class Promise
   alias __class__ class #:nodoc:
   instance_methods.each { |m| undef_method m unless m =~ /^__/ }
 
   def initialize( &computation ) #:nodoc:
     @computation = computation
-    __init_lock__
   end
-  def __init_lock__ ; end #:nodoc:
   def __synchronize__ ; yield ; end #:nodoc:
 
-  # create this once here, rather than creating another proc object for
+  # create this once here, rather than creating a proc object for
   # every evaluation
-  DIVERGES = lambda { raise DivergenceError::new } #:nodoc:
+  DIVERGES = lambda { raise DivergenceError.new } #:nodoc:
+  def DIVERGES.inspect ; "DIVERGES" ; end #:nodoc:
 
   def __result__ #:nodoc:
     __synchronize__ do
       if @computation
-        raise DivergenceError::new( @exception ) if @exception
+        raise LazyException.new( @exception ) if @exception
 
         computation = @computation
         @computation = DIVERGES # trap divergence due to over-eager recursion
@@ -62,7 +73,7 @@ class Promise
         rescue Exception => exception
           # handle exceptions
           @exception = exception
-          raise DivergenceError::new( @exception )
+          raise LazyException.new( @exception )
         end
       end
 
@@ -107,10 +118,11 @@ module Kernel
 # forwarded to the result object.
 #
 # As an aid to circular programming, the block will be passed a promise
-# for its own result when it is evaluated.
+# for its own result when it is evaluated.  Be careful not to force
+# that promise during the computation, or the computation will diverge.
 #
 def promise( &computation ) #:yields: result
-  Lazy::Promise::new &computation
+  Lazy::Promise.new &computation
 end
 
 # Forces the value of a promise and returns it.  If the promise has not
