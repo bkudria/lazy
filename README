@@ -4,9 +4,12 @@ For lazy evaluation, it provides two functions: promise (similar to Scheme's del
 
 Unlike some Scheme implementations, it is safe to pass ordinary values to force. Implicit evaluation is also supported, as the promise can be used directly in place of the computation's result.
 
-Newer versions of the library also include an API for lazy streams.  Unlike
-many lazy stream implementations, lazy.rb's streams are even (like Haskell's)
-and the library attempts to make it easy.
+The newest feature of the library is asynchronous evaluation, which runs the
+computation optimistically in an independent thread; demanding the result
+will wait for the computation to complete if needed.
+
+Note that promises are not threadsafe unless 'lazy/threadsafe' has been
+required ('lazy/async' requires it indirectly).
 
 lazy.rb is made available under the same license as Ruby.
 
