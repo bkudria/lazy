@@ -1,4 +1,4 @@
-# = lazy/async.rb -- asynchronous computations, based on promises
+# = lazy/futures.rb -- futures for Ruby
 #
 # Author:: MenTaLguY
 #
@@ -11,7 +11,7 @@ require 'lazy/threadsafe'
 
 module Lazy
 
-class Async < Promise
+class Future < Promise
   def initialize( &computation ) #:nodoc:
     result = nil
     exception = nil
@@ -37,14 +37,14 @@ end
 module Kernel
 
 # Schedules a computation to be run asynchronously in a background thread
-# and returns a promise for its result.  Kernel.demand will wait for the
-# computation to finish.
+# and returns a promise for its result.  An attempt to demand the result of
+# the promise will block until the computation finishes.
 #
-# As with Kernel.promise, async passes the block a promise for its own
-# result -- use wisely.
+# As with Kernel.promise, this passes the block a promise for its own result
+# -- use wisely.
 #
-def async( &computation ) #:yields: result
-  Lazy::Async.new &computation
+def future( &computation ) #:yields: result
+  Lazy::Future.new &computation
 end 
 
 end
