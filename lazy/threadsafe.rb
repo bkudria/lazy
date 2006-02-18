@@ -8,7 +8,6 @@
 #
 
 require 'lazy'
-require 'thread'
 
 module Lazy
 
