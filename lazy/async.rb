@@ -18,12 +18,13 @@ class Async < Promise
 
     thread = Thread.new do
       begin
-        result = computation.call
+        result = computation.call( self )
       rescue Exception => exception
       end
     end
 
     super() do
+      raise DivergenceError.new if Thread.current == thread
       thread.join
       raise exception if exception
       result
@@ -36,10 +37,15 @@ end
 module Kernel
 
 # Schedules a computation to be run asynchronously in a background thread
-# and returns a promise for its result.  demand() will wait for the
+# and returns a promise for its result.  Kernel.demand will wait for the
 # computation to finish.
 #
-def async( &block ) ; Lazy::Async.new &block ; end
+# As with Kernel.promise, async passes the block a promise for its own
+# result -- use wisely.
+#
+def async( &computation ) #:yields: result
+  Lazy::Async.new &computation
+end 
 
 end
 
