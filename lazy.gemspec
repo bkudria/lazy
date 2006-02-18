@@ -2,7 +2,7 @@ require 'rubygems'
 
 spec = Gem::Specification.new do |s|
   s.name = 'lazy'
-  s.version = "1.0"
+  s.version = "0.9.1"
   s.platform = Gem::Platform::RUBY
   s.summary = "Lazy evaluation for Ruby"
   s.description = "lazy.rb is a library providing lazy evaluation via promise/demand, asynchronous evaluation, and implicit evaluation of deferred computations."
