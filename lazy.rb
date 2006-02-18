@@ -31,56 +31,64 @@ class DivergenceError < Exception
   end
 end
 
-class Promise #:nodoc: all
+class Promise
+  alias __class__ class #:nodoc:
   instance_methods.each { |m| undef_method m unless m =~ /^__/ }
 
-  def initialize( &computation )
+  def initialize( &computation ) #:nodoc:
     @computation = computation
+    __init_lock__
   end
+  def __init_lock__ ; end #:nodoc:
+  def __synchronize__ ; yield ; end #:nodoc:
 
   # create this once here, rather than creating another proc object for
   # every evaluation
-  DIVERGES = lambda { raise DivergenceError::new }
+  DIVERGES = lambda { raise DivergenceError::new } #:nodoc:
 
-  def __result__
-    if @computation
-      raise DivergenceError::new( @exception ) if @exception
+  def __result__ #:nodoc:
+    __synchronize__ do
+      if @computation
+        raise DivergenceError::new( @exception ) if @exception
 
-      computation = @computation
-      @computation = DIVERGES # trap divergence due to over-eager recursion
+        computation = @computation
+        @computation = DIVERGES # trap divergence due to over-eager recursion
 
-      begin
-        @result = demand( computation.call( self ) )
-        @computation = nil
-      rescue DivergenceError
-        raise
-      rescue Exception => exception
-        # handle exceptions
-        @exception = exception
-        raise DivergenceError::new( @exception )
+        begin
+          @result = demand( computation.call( self ) )
+          @computation = nil
+        rescue DivergenceError
+          raise
+        rescue Exception => exception
+          # handle exceptions
+          @exception = exception
+          raise DivergenceError::new( @exception )
+        end
+      end
+
+      @result
+    end
+  end
+
+  def inspect #:nodoc:
+    __synchronize__ do
+      if @computation
+        "#<#{ __class__ } computation=#{ @computation.inspect }>"
+      else
+        @result.inspect
       end
     end
-
-    @result
   end
 
-  def inspect
-    if @computation
-      "#<Lazy::Promise computation=#{ @computation.inspect }>"
-    else
-      @result.inspect
-    end
-  end
-
-  def respond_to?( message )
+  def respond_to?( message ) #:nodoc:
     message = message.to_sym
     message == :__result__ or
     message == :inspect or
     __result__.respond_to? message
   end
 
-  def method_missing( *args, &block )
-    __result__.send( *args, &block )
+  def method_missing( *args, &block ) #:nodoc:
+    __result__.__send__( *args, &block )
   end
 end
 
