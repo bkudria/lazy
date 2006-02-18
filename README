@@ -8,7 +8,7 @@ To avoid locking overhead for single-threaded applications, promises will not
 be threadsafe unless you require 'lazy/threadsafe'.
 
 Additionally, the library provides futures, where a computation is run
-optimistically in a background thread. Futures can be constructed using
+optimistically in a background thread.  Futures can be constructed using
 Kernel.future.  Based on promises, they are also transparent.  An attempt to
 demand the result of a future will block until the computation completes.  
 

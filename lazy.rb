@@ -50,12 +50,15 @@ class Promise
   def initialize( &computation ) #:nodoc:
     @computation = computation
   end
-  def __synchronize__ ; yield ; end #:nodoc:
+  def __synchronize__ #:nodoc:
+  end
 
   # create this once here, rather than creating a proc object for
   # every evaluation
   DIVERGES = lambda { raise DivergenceError.new } #:nodoc:
-  def DIVERGES.inspect ; "DIVERGES" ; end #:nodoc:
+  def DIVERGES.inspect #:nodoc:
+    "DIVERGES"
+  end
 
   def __result__ #:nodoc:
     __synchronize__ do
@@ -124,10 +127,10 @@ def promise( &computation ) #:yields: result
   Lazy::Promise.new &computation
 end
 
-# Forces the a promise to be computed (if necessary) and returns the bare
-# result object.  The result will be cached for future calls to demand.
-# Nested promises will be evaluated until the first non-promise result
-# is reached.
+# Forces the result of a promise to be computed (if necessary) and returns
+# the bare result object.  Once evaluated, the result of the promise will
+# be cached.  Nested promises will be evaluated together, until the first
+# non-promise result.
 #
 # If called on a value that is not a promise, it will simply return it.
 #
@@ -138,6 +141,5 @@ def demand( promise )
     promise
   end
 end
-alias force demand
 
 end

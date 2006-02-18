@@ -40,8 +40,8 @@ module Kernel
 # and returns a promise for its result.  An attempt to demand the result of
 # the promise will block until the computation finishes.
 #
-# As with Kernel.promise, this passes the block a promise for its own result
-# -- use wisely.
+# As with Kernel.promise, this passes the block a promise for its own result.
+# Use wisely.
 #
 def future( &computation ) #:yields: result
   Lazy::Future.new &computation
