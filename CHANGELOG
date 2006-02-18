@@ -1,4 +1,17 @@
 --- %YAML:1.0
+- version: 0.9.5
+  date: 2006-02-18
+  changes:
+    lazy/stream.rb: Nuked.  No lazy stream API for now, until I can find a more stetic way to do it.
+    lazy.rb:
+    - get rid of Kernel.force
+    - introduce locking API for threadsafety
+    - many documentation tweaks
+    - split Lazy::DivergenceError and Lazy::LazyException
+    - include real promise class in inspect output
+    lazy/threadsafe.rb: adds locking to promises to make them threadsafe
+    lazy/future.rb: transparent futures, built atop promises
+
 - version: 0.2
   date: 2005-12-10
   changes:
