@@ -35,13 +35,13 @@ class LazyException < DivergenceError
   end
 end
 
-# A handle for a promised computation.  In most cases, it can be used
-# as a proxy for the computation's result object.  The one exception
-# is truth testing -- a promise will always look true to Ruby, regardless
-# of the actual result object.
+# A handle for a promised computation.  They are transparent, so that in
+# most cases, a promise can be used as a proxy for the computation's result
+# object.  The one exception is truth testing -- a promise will always look
+# true to Ruby, even if the actual result object is nil or false.
 #
-# If you want to test truth, get the unwrapped result object from
-# Kernel.demand.
+# If you want to test the result for truth, get the unwrapped result object
+# via Kernel.demand.
 #
 class Promise
   alias __class__ class #:nodoc:
@@ -112,23 +112,22 @@ module Kernel
 # block at a future time.  Evaluation can be demanded and the block's
 # result obtained via the demand() function.
 #
-# Implicit evaluation is also supported: a promise can usually be used
-# as a proxy for the result; the first message sent to it will demand
-# evaluation, and that message and any subsequent messages will be
-# forwarded to the result object.
+# Implicit evaluation is also supported: the first message sent to it will
+# demand evaluation, after which that message and any subsequent messages
+# will be forwarded to the result object.
 #
 # As an aid to circular programming, the block will be passed a promise
 # for its own result when it is evaluated.  Be careful not to force
-# that promise during the computation, or the computation will diverge.
+# that promise during the computation, lest the computation diverge.
 #
 def promise( &computation ) #:yields: result
   Lazy::Promise.new &computation
 end
 
-# Forces the value of a promise and returns it.  If the promise has not
-# been evaluated yet, it will be evaluated and its result remebered
-# for future calls to demand().  Nested promises will be evaluated until
-# a non-promise result is arrived at.
+# Forces the a promise to be computed (if necessary) and returns the bare
+# result object.  The result will be cached for future calls to demand.
+# Nested promises will be evaluated until the first non-promise result
+# is reached.
 #
 # If called on a value that is not a promise, it will simply return it.
 #
