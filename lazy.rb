@@ -51,6 +51,7 @@ class Promise
     @computation = computation
   end
   def __synchronize__ #:nodoc:
+    yield
   end
 
   # create this once here, rather than creating a proc object for
