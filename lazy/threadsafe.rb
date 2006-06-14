@@ -23,7 +23,7 @@ class Promise
     else
       if @owner == current
         Thread.critical = false
-        raise DivergenceError.new
+        raise DivergenceError
       end 
       while @owner # spinlock
         Thread.critical = false
@@ -36,7 +36,9 @@ class Promise
       begin
         yield
       ensure
+        Thread.critical = true
         @owner = nil
+        Thread.critical = false
       end
     end
   end
