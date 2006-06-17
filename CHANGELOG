@@ -1,4 +1,13 @@
 --- %YAML:1.0
+- version: 0.9.6
+  date: 2006-06-16
+  changes:
+    lib/lazy/threadsafe.rb: moved into lib directory, minor tweaks
+    lib/lazy/future.rb: moved into lib directory
+    lib/lazy.rb: moved into lib directory, documentation updates
+    Rakefile: rakefile to do it all from Daniel Harple
+    lazy.gemspec: retired
+
 - version: 0.9.5
   date: 2006-02-18
   changes:
