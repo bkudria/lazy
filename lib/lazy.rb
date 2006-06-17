@@ -35,13 +35,16 @@ class LazyException < DivergenceError
   end
 end
 
-# A handle for a promised computation.  They are transparent, so that in
-# most cases, a promise can be used as a proxy for the computation's result
-# object.  The one exception is truth testing -- a promise will always look
-# true to Ruby, even if the actual result object is nil or false.
+# A promise is just a magic object that springs to life when it is actually
+# used for the first time, running the provided block and assuming the
+# identity of the resulting object.
 #
-# If you want to test the result for truth, get the unwrapped result object
-# via Kernel.demand.
+# This impersonation isn't perfect -- a promise wrapping nil or false will
+# still be considered true by Ruby -- but it's good enough for most purposes.
+# If you do need to unwrap the result object for some reason (e.g. for truth
+# testing or for simple efficiency), you may do so via Kernel.demand.
+#
+# Formally, a promise is a placeholder for the result of a deferred computation.
 #
 class Promise
   alias __class__ class #:nodoc:
