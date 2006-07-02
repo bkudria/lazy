@@ -110,9 +110,8 @@ class Promise
   end
 end
 
-end
-
-module Kernel
+module Methods
+private
 
 # The promise() function is used together with demand() to implement
 # lazy evaluation.  It returns a promise to evaluate the provided
@@ -147,3 +146,13 @@ def demand( promise )
 end
 
 end
+
+extend Methods
+public :promise, :demand
+
+end
+
+module Kernel
+  include Lazy::Methods
+end
+
