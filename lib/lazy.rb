@@ -148,7 +148,9 @@ end
 end
 
 extend Methods
-public :promise, :demand
+class << self
+  public :promise, :demand
+end
 
 end
 
