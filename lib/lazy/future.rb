@@ -13,20 +13,10 @@ module Lazy
 
 class Future < Promise
   def initialize( &computation ) #:nodoc:
-    exception = nil
-
-    thread = Thread.new do
-      begin
-        computation.call( self )
-      rescue Exception => exception
-      end
-    end
-
+    thread = Thread.new { computation.call self }
     super() do
       raise DivergenceError if Thread.current == thread
-      result = thread.value
-      raise exception if exception
-      result
+      thread.value
     end
   end
 end
