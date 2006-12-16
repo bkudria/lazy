@@ -147,8 +147,6 @@ end
 
 end
 
-EXPORT_BLACKLIST = [ "EXPORT_BLACKLIST", "Methods" ]
-
 extend Methods
 class << self
   public :lazy, :force
