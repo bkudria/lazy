@@ -7,6 +7,8 @@
 # You may redistribute it and/or modify it under the same terms as Ruby.
 #
 
+require 'thread'
+
 module Lazy
 
 # Raised when a demanded computation diverges (e.g. if it tries to directly
@@ -51,10 +53,8 @@ class Promise
   instance_methods.each { |m| undef_method m unless m =~ /^__/ }
 
   def initialize( &computation ) #:nodoc:
+    @mutex = Mutex.new
     @computation = computation
-  end
-  def __synchronize__ #:nodoc:
-    yield
   end
 
   # create this once here, rather than creating a proc object for
@@ -65,7 +65,7 @@ class Promise
   end
 
   def __result__ #:nodoc:
-    __synchronize__ do
+    @mutex.synchronize do
       if @computation
         raise LazyException.new( @exception ) if @exception
 
@@ -89,7 +89,7 @@ class Promise
   end
 
   def inspect #:nodoc:
-    __synchronize__ do
+    @mutex.synchronize do
       if @computation
         "#<#{ __class__ } computation=#{ @computation.inspect }>"
       else
