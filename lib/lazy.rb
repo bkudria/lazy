@@ -73,7 +73,7 @@ class Promise
         @computation = DIVERGES # trap divergence due to over-eager recursion
 
         begin
-          @result = force( computation.call( self ) )
+          @result = Lazy.force( computation.call( self ) )
           @computation = nil
         rescue DivergenceError
           raise
@@ -98,10 +98,23 @@ class Promise
     end
   end
 
+  def marshal_dump
+    __result__
+    Marshal.dump( [ @exception, @result ] )
+  end
+
+  def marshal_load( str )
+    @mutex = Mutex.new
+    ( @exception, @result ) = Marshal.load( str )
+    @computation = DIVERGES if @exception
+  end
+
   def respond_to?( message ) #:nodoc:
     message = message.to_sym
     message == :__result__ or
     message == :inspect or
+    message == :marshal_dump or
+    message == :marshal_load or
     __result__.respond_to? message
   end
 
@@ -152,5 +165,28 @@ class << self
   public :lazy, :force
 end
 
+Promise.ancestors.each do |c|
+  class << c
+    alias lazy_rb_method_added method_added
+    def method_added( name )
+      lazy_rb_method_added( name )
+      return unless Lazy::Promise < self
+    end
+  end
+end
+
+end
+
+class Module
+  alias lazy_rb_method_added method_added
+  def method_added( name )
+    lazy_rb_method_added( name )
+    if Lazy::Promise < self
+      unless Lazy::Promise.instance_methods( true ).include? name.to_s
+        Lazy::Promise.class_eval { undef_method name }
+      end
+    end
+    nil
+  end
 end
 
