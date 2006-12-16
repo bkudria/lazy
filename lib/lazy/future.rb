@@ -12,11 +12,11 @@ require 'lazy/threadsafe'
 module Lazy
 
 class Future < Promise
-  def initialize( &computation ) #:nodoc:
-    thread = Thread.new { computation.call self }
+  def initialize( scheduler=Thread, &computation ) #:nodoc:
+    task = scheduler.new { computation.call self }
     super() do
       raise DivergenceError if Thread.current == thread
-      thread.value
+      task.value
     end
   end
 end
@@ -32,8 +32,8 @@ module Kernel
 # As with Kernel.promise, this passes the block a promise for its own result.
 # Use wisely.
 #
-def future( &computation ) #:yields: result
-  Lazy::Future.new &computation
+def future( scheduler=Thread, &computation ) #:yields: result
+  Lazy::Future.new scheduler, &computation
 end 
 
 end
