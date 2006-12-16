@@ -11,7 +11,7 @@ require 'thread'
 
 module Lazy
 
-# Raised when a demanded computation diverges (e.g. if it tries to directly
+# Raised when a forced computation diverges (e.g. if it tries to directly
 # use its own result)
 #
 class DivergenceError < Exception
@@ -44,7 +44,7 @@ end
 # This impersonation isn't perfect -- a promise wrapping nil or false will
 # still be considered true by Ruby -- but it's good enough for most purposes.
 # If you do need to unwrap the result object for some reason (e.g. for truth
-# testing or for simple efficiency), you may do so via Kernel.demand.
+# testing or for simple efficiency), you may do so via Kernel.force.
 #
 # Formally, a promise is a placeholder for the result of a deferred computation.
 #
@@ -73,7 +73,7 @@ class Promise
         @computation = DIVERGES # trap divergence due to over-eager recursion
 
         begin
-          @result = demand( computation.call( self ) )
+          @result = force( computation.call( self ) )
           @computation = nil
         rescue DivergenceError
           raise
@@ -113,20 +113,20 @@ end
 module Methods
 private
 
-# The promise() function is used together with demand() to implement
+# Used together with Lazy::Methods#force to implement
 # lazy evaluation.  It returns a promise to evaluate the provided
-# block at a future time.  Evaluation can be demanded and the block's
-# result obtained via the demand() function.
+# block at a future time.  Evaluation can be forced and the block's
+# result obtained via 
 #
 # Implicit evaluation is also supported: the first message sent to it will
-# demand evaluation, after which that message and any subsequent messages
+# force evaluation, after which that message and any subsequent messages
 # will be forwarded to the result object.
 #
 # As an aid to circular programming, the block will be passed a promise
 # for its own result when it is evaluated.  Be careful not to force
 # that promise during the computation, lest the computation diverge.
 #
-def promise( &computation ) #:yields: result
+def lazy( &computation ) #:yields: own_result
   Lazy::Promise.new &computation
 end
 
@@ -137,7 +137,7 @@ end
 #
 # If called on a value that is not a promise, it will simply return it.
 #
-def demand( promise )
+def force( promise )
   if promise.respond_to? :__result__
     promise.__result__
   else # not really a promise
@@ -147,14 +147,12 @@ end
 
 end
 
+EXPORT_BLACKLIST = [ "EXPORT_BLACKLIST", "Methods" ]
+
 extend Methods
 class << self
-  public :promise, :demand
+  public :lazy, :force
 end
 
-end
-
-module Kernel
-  include Lazy::Methods
 end
 
