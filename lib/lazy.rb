@@ -139,7 +139,7 @@ class Future < Promise
   def initialize( scheduler=Thread, &computation ) #:nodoc:
     task = scheduler.new { computation.call self }
     super() do
-      raise DivergenceError if Thread.current == thread
+      raise DivergenceError if scheduler.current == task
       task.value
     end
   end
