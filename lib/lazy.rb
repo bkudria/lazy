@@ -44,7 +44,7 @@ end
 # This impersonation isn't perfect -- a promise wrapping nil or false will
 # still be considered true by Ruby -- but it's good enough for most purposes.
 # If you do need to unwrap the result object for some reason (e.g. for truth
-# testing or for simple efficiency), you may do so via Kernel.force.
+# testing or for simple efficiency), you may do so via Kernel.demand.
 #
 # Formally, a promise is a placeholder for the result of a deferred computation.
 #
@@ -73,7 +73,7 @@ class Promise
         @computation = DIVERGES # trap divergence due to over-eager recursion
 
         begin
-          @result = Lazy.force( computation.call( self ) )
+          @result = Lazy.demand( computation.call( self ) )
           @computation = nil
         rescue DivergenceError
           raise
@@ -148,7 +148,7 @@ end
 module Methods
 private
 
-# Used together with Lazy::Methods#force to implement
+# Used together with Lazy::Methods#demand to implement
 # lazy evaluation.  It returns a promise to evaluate the provided
 # block at a future time.  Evaluation can be forced and the block's
 # result obtained via 
@@ -161,7 +161,7 @@ private
 # for its own result when it is evaluated.  Be careful not to force
 # that promise during the computation, lest the computation diverge.
 #
-def lazy( &computation ) #:yields: own_result
+def promise( &computation ) #:yields: own_result
   Lazy::Promise.new &computation
 end
 
@@ -172,7 +172,7 @@ end
 #
 # If called on a value that is not a promise, it will simply return it.
 #
-def force( promise )
+def demand( promise )
   if promise.respond_to? :__result__
     promise.__result__
   else # not really a promise
@@ -192,10 +192,10 @@ end
 # terminated the task.  The Thread class trivially satisfies this
 # protocol.
 #
-# As with Lazy::Methods#force, this passes the block a promise for its own
+# As with Lazy::Methods#demand, this passes the block a promise for its own
 # result.  Use wisely.
 #
-def async( scheduler=Thread, &computation ) #:yields: own_result
+def future( scheduler=Thread, &computation ) #:yields: own_result
   Lazy::Future.new scheduler, &computation
 end 
 
@@ -203,7 +203,7 @@ end
 
 extend Methods
 class << self
-public :lazy, :force, :async
+public :promise, :demand, :future
 end
 
 end
