@@ -4,16 +4,15 @@ For lazy evaluation, the facilities are similar to those provided by R5 Scheme. 
 
 Unlike some Scheme implementations, it is safe to pass ordinary values to demand. Promises are also transparent, meaning that in most cases an evaluated promise is not distinguishable from the actual result object it wraps.
 
-To avoid locking overhead for single-threaded applications, promises will not
-be threadsafe unless you require 'lazy/threadsafe'.
+Originally, promises were not threadsafe unless you required 'lazy/threadsafe',
+but today they are threadsafe by default.  This does entail some amount of
+synchronization overhead, which in Ruby 1.8 can be reduced by using fastthread.
+(Other Ruby implementations like JRuby and 1.9 should have lower
+synchronization overhead to start with.)
 
 Additionally, the library provides futures, where a computation is run
 optimistically in a background thread.  Futures can be constructed using
 Kernel.future.  Based on promises, they are also transparent.  An attempt to
 demand the result of a future will block until the computation completes.  
 
-Since futures require threads, requiring 'lazy/future' will automatically
-require 'lazy/threadsafe' for you.
-
 lazy.rb is made available under the same license as Ruby.
-
